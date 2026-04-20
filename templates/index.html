@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Pro | Search Enabled</title>
+    <style>
+        :root { --primary: #2c3e50; --success: #27ae60; --danger: #e74c3c; --info: #3498db; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1100px; margin: auto; }
+        h1 { color: var(--primary); text-align: center; margin-bottom: 30px; }
+
+        /* Design Blocks */
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        
+        /* Form & Search */
+        .flex-container { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        input { padding: 10px; border: 1px solid #ddd; border-radius: 5px; outline: none; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; }
+        .btn-add { background: var(--success); }
+        .btn-search { background: var(--info); }
+        .btn-clear { background: #95a5a6; text-decoration: none; font-size: 14px; display: inline-flex; align-items: center; }
+
+        /* Table Design */
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: var(--primary); color: white; }
+        .status { font-weight: bold; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+        .low-stock { color: var(--danger); background: #ffeaea; }
+        .in-stock { color: var(--success); background: #eafff2; }
+
+        /* Action Buttons */
+        .action-btn { padding: 6px 12px; border-radius: 4px; border: none; cursor: pointer; color: white; font-size: 13px; text-decoration: none; }
+        .edit-btn { background: var(--info); margin-right: 5px; }
+        .delete-btn { background: var(--danger); }
+
+        /* Modal */
+        #editModal { display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 30px; border-radius: 10px; width: 400px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📦 Smart Inventory Dashboard</h1>
+    
+    <div class="card">
+        <form action="/add" method="POST" class="flex-container">
+            <input type="text" name="name" placeholder="Product Name" required>
+            <input type="text" name="category" placeholder="Category">
+            <input type="number" name="quantity" placeholder="Qty" style="width: 70px;" required>
+            <input type="number" step="0.01" name="price" placeholder="Price" style="width: 90px;" required>
+            <button type="submit" class="btn btn-add">Add to Stock</button>
+        </form>
+    </div>
+
+    <div class="card" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; color: var(--primary);">Product List</h3>
+        <form action="/" method="GET" style="display: flex; gap: 5px;">
+            <input type="text" name="search" placeholder="Search name or category..." value="{{ last_search }}">
+            <button type="submit" class="btn btn-search">Search</button>
+            {% if last_search %}
+                <a href="/" class="btn btn-clear">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item[0] }}</td>
+                <td><strong>{{ item[1] }}</strong></td>
+                <td>{{ item[2] }}</td>
+                <td>{{ item[3] }}</td>
+                <td>${{ "{:.2f}".format(item[4]) }}</td>
+                <td>
+                    {% if item[3] <= 5 %}
+                        <span class="status low-stock">Low Stock</span>
+                    {% else %}
+                        <span class="status in-stock">In Stock</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <button class="action-btn edit-btn" onclick="openEdit('{{ item[0] }}', '{{ item[1] }}', '{{ item[2] }}', '{{ item[3] }}', '{{ item[4] }}')">Edit</button>
+                    <a href="{{ url_for('delete_item', id=item[0]) }}" class="action-btn delete-btn" onclick="return confirm('Delete this item?')">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div id="editModal">
+    <div class="modal-content">
+        <h3>Update Product</h3>
+        <form action="/update" method="POST">
+            <input type="hidden" name="id" id="edit-id">
+            <div style="margin-bottom: 15px;">
+                <label>Product Name</label>
+                <input type="text" name="name" id="edit-name" required style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>Category</label>
+                <input type="text" name="category" id="edit-category" style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>Quantity</label>
+                <input type="number" name="quantity" id="edit-qty" required style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>Price</label>
+                <input type="number" step="0.01" name="price" id="edit-price" required style="width: 100%;">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-add" style="flex: 1;">Save Changes</button>
+                <button type="button" onclick="closeEdit()" style="background: #95a5a6; flex: 1;" class="btn">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEdit(id, name, cat, qty, price) {
+        document.getElementById('edit-id').value = id;
+        document.getElementById('edit-name').value = name;
+        document.getElementById('edit-category').value = cat;
+        document.getElementById('edit-qty').value = qty;
+        document.getElementById('edit-price').value = price;
+        document.getElementById('editModal').style.display = 'flex';
+    }
+
+    function closeEdit() {
+        document.getElementById('editModal').style.display = 'none';
+    }
+</script>
+
+</body>
+</html>
